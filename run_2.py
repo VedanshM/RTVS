@@ -148,6 +148,7 @@ def main():
     optimiser = torch.optim.Adam(vs_lstm.parameters(), lr=LR, betas=(0.93, 0.999))
 
     photo_error_val=mse_(img_src,img_goal)
+    perrors = [photo_error_val]
     print("Initial Photometric Error: ")
     print(mse_(img_src, img_goal))
     start_time = time.time() 
@@ -219,6 +220,7 @@ def main():
         # f_mean.write(str(vs_lstm.mean_interm[0]))
         
         print("Photometric Error : ", photo_error_val)
+        perrors.append(photo_error_val)
         #f.write("Predicted Velocities: \n")
         #f.write(str(vs_lstm.v_interm))
         #f.write("\n")
@@ -263,7 +265,7 @@ def main():
         print("MPC Iteration time : ", time.time() - mpc_time)
         print()
         #print("time : ", tt)
-        
+
         
     time_taken = time.time() - start_time
     f.write("Time Taken: " + str(time_taken) + "secs \n")
@@ -276,6 +278,9 @@ def main():
     del vs_lstm
     del loss_fn
     del optimiser
+
+    plt.plot(perrors)
+    plt.savefig("a.png")
 
     # save indvidial image and gif
     # onlyfiles = [f for f in listdir(folder + "/results") if f.endswith(".png")]
