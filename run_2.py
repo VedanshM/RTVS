@@ -99,7 +99,11 @@ def main():
         state = habitat_sim.agent.AgentState(position=pos)
         sim._default_agent.set_state(state)
         V = np.array([[0, 0, 0, 0, 0, 0]])
-    else :
+    elif folder == "Baseline/test":
+        sim._default_agent.set_state(habitat_sim.agent.AgentState(
+            position=[-1.7926959,  0.11083889, 19.255245]))
+        V = np.array([[0, 0, 0, 0, 0, 0]])
+    else:
         V = np.array([[0, 0, 0, 0, 0, 0]])
     
     sim = update_v(V, sim)
@@ -148,7 +152,8 @@ def main():
     print(mse_(img_src, img_goal))
     start_time = time.time() 
     step=1 # making 0 to 1 for flow depth
-
+    print(sim._default_agent.state)
+    # exit(0)
     while photo_error_val > 500 and step < 5000:
         mpc_time = time.time()
         ct = 20
@@ -273,12 +278,12 @@ def main():
     del optimiser
 
     # save indvidial image and gif
-    onlyfiles = [f for f in listdir(folder + "/results") if f.endswith(".png")]
-    onlyfiles.sort()
-    images = []
-    for filename in onlyfiles:
-        images.append(imageio.imread(folder + '/results/' + filename))
-    imageio.mimsave(folder + '/results/output.gif', images, fps=4)
+    # onlyfiles = [f for f in listdir(folder + "/results") if f.endswith(".png")]
+    # onlyfiles.sort()
+    # images = []
+    # for filename in onlyfiles:
+    #     images.append(imageio.imread(folder + '/results/' + filename))
+    # imageio.mimsave(folder + '/results/output.gif', images, fps=4)
 
     
 
