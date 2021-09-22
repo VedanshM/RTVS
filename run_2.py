@@ -218,12 +218,13 @@ def main():
         #f.write(str(vs_lstm.v_interm))
         #f.write("\n")
         ### Saving the images
+        act_time = time.time()
         sim = update_v([vs_lstm.v_interm[0]], sim)
         observations, sim = take_action(sim, vs_lstm.v_interm[0])
+        print("acttime: ", time.time() - act_time)
         pre_img_src = img_src
         img_src = observations["color_sensor"][:,:,:3]
-        #img_src = Image.fromarray(color_obs, mode="RGBA")
-        #img_src.save(folder + "/results/test.rgba.%05d.%05d.png" % (step, step))
+        Image.fromarray(observations['color_sensor'], mode="RGBA").save(folder + "/results/test.rgba.%05d.%05d.png" % (0, step))
         #img_src = read_gen(folder + "/results/test.rgba.%05d.%05d.png" % (step, step))
         
         #d1 = observations["depth_sensor"]
@@ -267,7 +268,6 @@ def main():
     
     del flow_utils
     del intermat
-    del env
     del vs_lstm
     del loss_fn
     del optimiser
