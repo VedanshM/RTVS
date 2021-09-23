@@ -12,6 +12,7 @@
 ./data
 ./Baseline/*
 Corl_Benchmark/
+flownet2/
 __pycache__/
 *.py[cod]
 *$py.class

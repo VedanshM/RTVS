@@ -2,9 +2,8 @@ import torch
 import numpy as np
 from PIL import Image
 import sys
-sys.path.insert(0, "/home/pushkalkatara/RTVS/flownet2-pytorch")
 
-from models import FlowNet2
+from flownet2.models import FlowNet2
 from utils.frame_utils import read_gen, flow_to_image
 
 class Args():
