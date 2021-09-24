@@ -280,7 +280,7 @@ def main():
     del optimiser
 
     plt.plot(perrors)
-    plt.savefig("a.png")
+    plt.savefig(folder+ "a.png")
 
     # save indvidial image and gif
     # onlyfiles = [f for f in listdir(folder + "/results") if f.endswith(".png")]
