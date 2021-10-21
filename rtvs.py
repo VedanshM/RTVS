@@ -1,6 +1,6 @@
 import warnings
 import numpy as np
-from origina_dcem_model import Model
+from dcem_model import Model
 from calculate_flow import FlowNet2Utils
 from calculate_flow import FlowNet2Utils
 import torch

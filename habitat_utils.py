@@ -12,8 +12,6 @@ import cv2
 from habitat_sim import registry
 
 import magnum as mn
-
-from PIL import Image
 #======================================================================================#
 
 
@@ -32,15 +30,14 @@ ML_KEY = "4"
 MR_KEY = "6"
 FINISH="f"
 
-actions_taken=[]
 action_dict ={
     "w" : "move_forward",
     "a" : "look_left",
     "d" : "look_right",
     "u" : "look_up",
     "s" : "look_down",
-    "n" : "look_anti",
-    "c" : "look_clock",
+    "n" : "rotate_sensor_anti_clockwise",
+    "c" : "rotate_sensor_clockwise",
     "8" : "move_up",
     "2" : "move_down",
     "4" : "move_left",
@@ -53,7 +50,7 @@ def transform_rgb_bgr(image):
 #======================================================================================#
 # Defining simulator settings #
 #======================================================================================#
-test_scene = "./gibson/Denmark.glb"
+test_scene = "./gibson/Pablo.glb"
 
 sim_settings = {
     "width": 512,  # Spatial resolution of the observations
@@ -61,8 +58,9 @@ sim_settings = {
     "scene": "./Baseline/skokloster-castle/Skokloster-castle.glb",  # Scene path
     "default_agent": 0,
     "sensor_height": 1.5,  # Height of sensors in meters
+    "hfov": 90,
     "color_sensor": True,  # RGB sensor
-    "semantic_sensor": True,  # Semantic sensor
+    "semantic_sensor": False,  # Semantic sensor
     "depth_sensor": True,  # Depth sensor
     "seed": 1,
 }
@@ -74,91 +72,100 @@ sim_settings = {
 def make_cfg(settings):
     sim_cfg = habitat_sim.SimulatorConfiguration()
     sim_cfg.gpu_device_id = 0
-    sim_cfg.scene.id = settings["scene"]
+    sim_cfg.scene_id = settings["scene"]
+    sensor_specs = []
+    def create_camera_spec(**kw_args):
+        camera_sensor_spec = habitat_sim.CameraSensorSpec()
+        camera_sensor_spec.sensor_type = habitat_sim.SensorType.COLOR
+        camera_sensor_spec.resolution = [settings["height"], settings["width"]]
+        camera_sensor_spec.position = [0, settings["sensor_height"], 0]
+        for k in kw_args:
+            setattr(camera_sensor_spec, k, kw_args[k])
+        return camera_sensor_spec
 
     # Note: all sensors must have the same resolution
-    sensors = {
-        "color_sensor": {
-            "sensor_type": habitat_sim.SensorType.COLOR,
-            "resolution": [settings["height"], settings["width"]],
-            "position": [0.0, settings["sensor_height"], 0.0],
-        },
-        "depth_sensor": {
-            "sensor_type": habitat_sim.SensorType.DEPTH,
-            "resolution": [settings["height"], settings["width"]],
-            "position": [0.0, settings["sensor_height"], 0.0],
-        },
-        "semantic_sensor": {
-            "sensor_type": habitat_sim.SensorType.SEMANTIC,
-            "resolution": [settings["height"], settings["width"]],
-            "position": [0.0, settings["sensor_height"], 0.0],
-        },
-    }
+    if settings["color_sensor"]:
+        color_sensor_spec = create_camera_spec(
+            uuid="color_sensor",
+            hfov=settings["hfov"],
+            sensor_type=habitat_sim.SensorType.COLOR,
+            sensor_subtype=habitat_sim.SensorSubType.PINHOLE,
+        )
+        sensor_specs.append(color_sensor_spec)
 
-    sensor_specs = []
-    for sensor_uuid, sensor_params in sensors.items():
-        if settings[sensor_uuid]:
-            sensor_spec = habitat_sim.SensorSpec()
-            sensor_spec.uuid = sensor_uuid
-            sensor_spec.sensor_type = sensor_params["sensor_type"]
-            sensor_spec.resolution = sensor_params["resolution"]
-            sensor_spec.position = sensor_params["position"]
+    if settings["depth_sensor"]:
+        depth_sensor_spec = create_camera_spec(
+            uuid="depth_sensor",
+            hfov=settings["hfov"],
+            sensor_type=habitat_sim.SensorType.DEPTH,
+            channels=1,
+            sensor_subtype=habitat_sim.SensorSubType.PINHOLE,
+        )
+        sensor_specs.append(depth_sensor_spec)
 
-            sensor_specs.append(sensor_spec)
+    if settings["semantic_sensor"]:
+        semantic_sensor_spec = create_camera_spec(
+            uuid="semantic_sensor",
+            hfov=settings["hfov"],
+            sensor_type=habitat_sim.SensorType.SEMANTIC,
+            channels=1,
+            sensor_subtype=habitat_sim.SensorSubType.PINHOLE,
+        )
+        sensor_specs.append(semantic_sensor_spec)
 
     # Here you can specify the amount of displacement in a forward action and the turn angle
     agent_cfg = habitat_sim.agent.AgentConfiguration()
     agent_cfg.sensor_specifications = sensor_specs
     agent_cfg.action_space = {
         "move_forward": habitat_sim.agent.ActionSpec(
-            "move_forward", habitat_sim.agent.ActuationSpec(amount=1.0)
+            "move_forward", habitat_sim.agent.ActuationSpec(amount=0.0)
         ),
          "move_backward": habitat_sim.agent.ActionSpec(
-            "move_backward", habitat_sim.agent.ActuationSpec(amount=1.0)
+            "move_backward", habitat_sim.agent.ActuationSpec(amount=0.0)
         ),
         "move_down": habitat_sim.agent.ActionSpec(
-            "move_down", habitat_sim.agent.ActuationSpec(amount=1.0)
+            "move_down", habitat_sim.agent.ActuationSpec(amount=0.0)
         ),
         "turn_left": habitat_sim.agent.ActionSpec(
-            "turn_left", habitat_sim.agent.ActuationSpec(amount=1.0)
+            "turn_left", habitat_sim.agent.ActuationSpec(amount=0.0)
         ),
         "turn_right": habitat_sim.agent.ActionSpec(
-            "turn_right", habitat_sim.agent.ActuationSpec(amount=1.0)
+            "turn_right", habitat_sim.agent.ActuationSpec(amount=0.0)
         ),
         "look_up": habitat_sim.agent.ActionSpec(
-            "look_up", habitat_sim.agent.ActuationSpec(amount=1.0)
+            "look_up", habitat_sim.agent.ActuationSpec(amount=0.0)
         ),
         "look_down": habitat_sim.agent.ActionSpec(
             "look_down", habitat_sim.agent.ActuationSpec(amount=0.0)
         ),
         
         "look_left": habitat_sim.agent.ActionSpec(
-            "look_left", habitat_sim.agent.ActuationSpec(amount=1.0)
+            "look_left", habitat_sim.agent.ActuationSpec(amount=0.0)
         ),
         "look_right": habitat_sim.agent.ActionSpec(
-            "look_right", habitat_sim.agent.ActuationSpec(amount=1.0)
+            "look_right", habitat_sim.agent.ActuationSpec(amount=0.0)
         ),
         
         "look_anti": habitat_sim.agent.ActionSpec(
-            "rotate_sensor_anti_clockwise", habitat_sim.agent.ActuationSpec(amount=10.0)
+            "rotate_sensor_anti_clockwise", habitat_sim.agent.ActuationSpec(amount=0.0)
         ),
         "look_clock": habitat_sim.agent.ActionSpec(
-            "look_clock", habitat_sim.agent.ActuationSpec(amount=1.0)
+            "rotate_sensor_clockwise", habitat_sim.agent.ActuationSpec(amount=0.0)
         ),
         
         
         "move_down": habitat_sim.agent.ActionSpec(
-            "move_down", habitat_sim.agent.ActuationSpec(amount=1.0)
+            "move_down", habitat_sim.agent.ActuationSpec(amount=0.0)
         ),
         
         "move_up": habitat_sim.agent.ActionSpec(
-            "move_up", habitat_sim.agent.ActuationSpec(amount=1.0)
+            "move_up", habitat_sim.agent.ActuationSpec(amount=0.0)
         ),
         "move_left": habitat_sim.agent.ActionSpec(
-            "move_left", habitat_sim.agent.ActuationSpec(amount=1.0)
+            "move_left", habitat_sim.agent.ActuationSpec(amount=0.0)
         ),
         "move_right": habitat_sim.agent.ActionSpec(
-            "move_right", habitat_sim.agent.ActuationSpec(amount=1.0)
+            "move_right", habitat_sim.agent.ActuationSpec(amount=0.0)
         ),
     }
 
@@ -175,25 +182,26 @@ if __name__ == '__main__':
 #======================================================================================#
 # Changing the amount of actuation #
 #======================================================================================#
-def update_v(V, sim):
-    sim.config.agents[0].action_space['move_right'].actuation.amount = -0.1*V[0]
-    sim.config.agents[0].action_space['move_left'].actuation.amount = 0
-    
-    sim.config.agents[0].action_space['move_up'].actuation.amount = -0.09*V[1]
-    sim.config.agents[0].action_space['move_down'].actuation.amount = 0
-    
-    sim.config.agents[0].action_space['move_forward'].actuation.amount = 0.09*V[2]
-    sim.config.agents[0].action_space['move_backward'].actuation.amount = 0
-    
-    sim.config.agents[0].action_space['look_left'].actuation.amount = 0.1*V[4]
-    sim.config.agents[0].action_space['look_right'].actuation.amount = 0
-    
-    sim.config.agents[0].action_space['look_up'].actuation.amount = -1*V[3]
-    sim.config.agents[0].action_space['look_down'].actuation.amount = 0
-    
-    sim.config.agents[0].action_space['look_anti'].actuation.amount = 1*V[5]
-    sim.config.agents[0].action_space['look_clock'].actuation.amount = 0
-    return sim
+def take_step(V, sim):
+    V = V[0]
+    print("Velocity : ", V)
+    factor = 0.00416
+    rf = 180/np.pi
+    v1, v2, v3= 1, 1, 1
+    sim.config.agents[0].action_space['move_right'].actuation.amount = v1*factor*V[0]
+    sim.config.agents[0].action_space['move_up'].actuation.amount = -v2*factor*V[1]
+    sim.config.agents[0].action_space['move_backward'].actuation.amount = -v3*factor*V[2]
+    sim.config.agents[0].action_space['look_left'].actuation.amount = -rf*factor*V[4]
+    sim.config.agents[0].action_space['look_up'].actuation.amount = rf*factor*V[3]
+    sim.config.agents[0].action_space['look_anti'].actuation.amount = rf*factor*V[5]
+    sim.step("move_right")
+    sim.step("move_backward")
+    sim.step("move_up")
+    sim.step("look_up")
+    sim.step("look_left")
+    observations = sim.step("look_anti")
+    return observations
+
     
 #======================================================================================#
 
@@ -241,20 +249,20 @@ def transform_rgb_bgr(image):
 
 
 def example():
-    iter = 0 
-    observations = sim.step('look_down')
-    cv2.imwrite('initial.png', observations["color_sensor"])
-    #cv2.imshow("RGB", observations["color_sensor"])
+
+    
+    observations = sim.step('move_forward')
+    cv2.imshow("RGB", observations["color_sensor"])
 
     print("Agent stepping around inside environment.")
 
     count_steps = 0
-    for act in actions_taken:
-        #keystroke = cv2.waitKey(0)
-        #if(keystroke == "f"):
-        #    return
-        #print("Key Stroke : ", chr(keystroke))
-        action = action_dict[act]
+    while True:
+        keystroke = cv2.waitKey(0)
+        if(keystroke == "f"):
+            return
+        print("Key Stroke : ", chr(keystroke))
+        action = action_dict[chr(keystroke)]
         print("Action is : ", action)
 
         # if keystroke == ord(FORWARD_KEY):
@@ -281,14 +289,10 @@ def example():
         count_steps += 1
 
         print(observations["color_sensor"].shape)
-        #cv2.imshow("RGB", observations["color_sensor"])
-        #cv2.imwrite('ipossible_ref.png', observations["color_sensor"])
-        color_obs = observations['color_sensor']
-        img_src = Image.fromarray(color_obs, mode="RGBA")
-        img_src.save("des.png")
+        cv2.imshow("RGB", observations["color_sensor"])
+        cv2.imwrite('test.png', observations["color_sensor"])
 
 if __name__ == '__main__':
-    print("obtaining ref")
     example()
 #======================================================================================#
 

@@ -1,7 +1,7 @@
 # Abhinav and Nomaan, October 22, 2020
 # This runs with FLOW DEPTH!!
 import habitat_sim
-from final import update_v, sim_settings, make_cfg
+from habitat_utils import take_step, sim_settings, make_cfg
 import warnings
 from utils.photo_error import mse_
 import numpy as np
@@ -16,22 +16,6 @@ os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
 np.random.seed(0)
 
 warnings.filterwarnings("ignore")
-
-
-def take_action(sim, V):
-    sim.step("move_left")
-    sim.step("move_right")
-    sim.step("move_forward")
-    sim.step("move_backward")
-    sim.step("move_up")
-    sim.step("move_down")
-    sim.step("look_up")
-    sim.step("look_down")
-    sim.step("look_left")
-    sim.step("look_right")
-    sim.step("look_clock")
-    observations = sim.step("look_anti")
-    return observations, sim
 
 
 def main():
@@ -59,9 +43,8 @@ def main():
     else:
         V = np.array([[0, 0, 0, 0, 0, 0]])
 
-    sim = update_v(V, sim)
-    observations, sim = take_action(sim, V)
-    print("Pose 3 : ", sim._default_agent.get_state(
+    observations = take_step(V, sim)
+    print("Pose : ", sim._default_agent.get_state(
     ).sensor_states['color_sensor'].position)
 
     # Create folder for results
@@ -96,8 +79,7 @@ def main():
 
         perrors.append(photo_error_val)
 
-        sim = update_v([vel], sim)
-        observations, sim = take_action(sim, vel)
+        observations = take_step([vel], sim)
 
         pre_img_src = img_src
         img_src = observations["color_sensor"][:, :, :3]
