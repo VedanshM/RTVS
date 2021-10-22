@@ -45,9 +45,15 @@ def get_interaction_data(d1, ct, Cy, Cx):
 
 
 class Rtvs:
-    def __init__(self) -> None:
-        LR = 0.005  # Learning Rate
-        self.horizon = 10
+    def __init__(self,
+        LR = 0.005,  # Learning Rate
+        ct = 20,
+        horizon = 10,
+        iterations = 1,
+    ) -> None:
+        self.horizon = horizon
+        self.iterations = iterations
+        self.ct = ct
         self.flow_utils = FlowNet2Utils()
         self.vs_lstm = Model().to(device="cuda:0")
         self.optimiser = torch.optim.Adam(self.vs_lstm.parameters(),
@@ -65,7 +71,7 @@ class Rtvs:
             self.horizon = 10*(photo_error_val/6000)
         elif photo_error_val < 3000:
             self.horizon = 6
-        ct = 20
+        ct = self.ct
         f12 = flow_utils.flow_calculate(img_src, img_goal)[::ct, ::ct]
         flow_depth_proxy = flow_utils.flow_calculate(
             img_src, pre_img_src).astype('float64')
@@ -81,17 +87,18 @@ class Rtvs:
         f12 = torch.tensor(f12, dtype=torch.float32).to(device="cuda:0")
         f12 = vs_lstm.pooling(f12.permute(2, 0, 1).unsqueeze(dim=0))
 
-        vs_lstm.v_interm = []
-        vs_lstm.f_interm = []
-        vs_lstm.mean_interm = []
+        for itr in range(self.iterations):
+            vs_lstm.v_interm = []
+            vs_lstm.f_interm = []
+            vs_lstm.mean_interm = []
 
-        vs_lstm.zero_grad()
-        f_hat = vs_lstm.forward(vel, Lsx, Lsy, self.horizon, f12)
-        loss = loss_fn(f_hat, f12)
+            vs_lstm.zero_grad()
+            f_hat = vs_lstm.forward(vel, Lsx, Lsy, self.horizon, f12)
+            loss = loss_fn(f_hat, f12)
 
-        print("MSE:", str(np.sqrt(loss.item())))
-        loss.backward(retain_graph=True)
-        optimiser.step()
+            print("MSE:", str(np.sqrt(loss.item())))
+            loss.backward(retain_graph=True)
+            optimiser.step()
 
         #Do not accumulate flow and velocity at train time
         vs_lstm.v_interm = []
