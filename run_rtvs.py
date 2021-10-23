@@ -20,7 +20,6 @@ warnings.filterwarnings("ignore")
 
 def main():
     folder = sys.argv[1]
-    getv = Rtvs()
 
     # Create folder for image results
     if not os.path.exists(folder+'/results'):
@@ -71,11 +70,14 @@ def main():
     start_time = time.time()
     step = 1
     print(sim._default_agent.state)
+    rtvs = Rtvs(img_goal)
 
     while photo_error_val > 500 and step < 5000:
         print("Step Number: ", step)
         print("Photometric Error : ", photo_error_val)
-        vel, photo_error_val = getv.get_vel(img_goal, img_src, pre_img_src)
+        stime = time.time()
+        vel, photo_error_val = rtvs.get_vel(img_src, pre_img_src)
+        print("algo time: ", time.time() - stime)
 
         perrors.append(photo_error_val)
 

@@ -5,52 +5,37 @@ from calculate_flow import FlowNet2Utils
 from calculate_flow import FlowNet2Utils
 import torch
 import os
+from utils.photo_error import mse_
+
+
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
 np.random.seed(0)
-
 warnings.filterwarnings("ignore")
-
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 torch.manual_seed(0)
 torch.autograd.set_detect_anomaly(True)
 
 
-def mse_(image_1, image_2):
-	imageA = np.asarray(image_1)
-	imageB = np.asarray(image_2)
-	err = np.sum((imageA.astype("float") - imageB.astype("float"))**2)
-	err /= float(imageA.shape[0] * imageA.shape[1])
-
-	return err
-
-def get_interaction_data(d1, ct, Cy, Cx):
-    ky = Cy
-    kx = Cx
-    xyz = np.zeros([d1.shape[0], d1.shape[1], 3])
-    Lsx = np.zeros([d1.shape[0], d1.shape[1], 6])
-    Lsy = np.zeros([d1.shape[0], d1.shape[1], 6])
-
-    med = np.median(d1)
-    xyz = np.fromfunction(lambda i, j, k: 0.5*(k-1)*(k-2)*(ct*j-float(Cx))/float(kx) - k*(k-2)*(ct*i-float(Cy))/float(ky) + 0.5*k*(
-        k-1)*((d1[i.astype(int), j.astype(int)] == 0)*med + d1[i.astype(int), j.astype(int)]), (d1.shape[0], d1.shape[1], 3), dtype=float)
-
-    Lsx = np.fromfunction(lambda i, j, k: (k == 0).astype(int) * -1/xyz[i.astype(int), j.astype(int), 2] + (k == 2).astype(int) * xyz[i.astype(int), j.astype(int), 0]/xyz[i.astype(int), j.astype(int), 2] + (k == 3).astype(int) * xyz[i.astype(
-        int), j.astype(int), 0]*xyz[i.astype(int), j.astype(int), 1] + (k == 4).astype(int)*(-(1+xyz[i.astype(int), j.astype(int), 0]**2)) + (k == 5).astype(int)*xyz[i.astype(int), j.astype(int), 1], (d1.shape[0], d1.shape[1], 6), dtype=float)
-
-    Lsy = np.fromfunction(lambda i, j, k: (k == 1).astype(int) * -1/xyz[i.astype(int), j.astype(int), 2] + (k == 2).astype(int) * xyz[i.astype(int), j.astype(int), 1]/xyz[i.astype(int), j.astype(int), 2] + (k == 3).astype(int) * (1+xyz[i.astype(
-        int), j.astype(int), 1]**2) + (k == 4).astype(int)*-xyz[i.astype(int), j.astype(int), 0]*xyz[i.astype(int), j.astype(int), 1] + (k == 5).astype(int) * -xyz[i.astype(int), j.astype(int), 0], (d1.shape[0], d1.shape[1], 6), dtype=float)
-
-    return None, Lsx, Lsy
-
-
 class Rtvs:
+    '''
+    Code for RTVS: Real-Time Visual Servoing, IROS 2021
+    '''
     def __init__(self,
-        LR = 0.005,  # Learning Rate
-        ct = 20,
-        horizon = 10,
-        iterations = 1,
-    ) -> None:
+                 img_goal: np.ndarray,
+                 ct=20,
+                 horizon=10,
+                 LR=0.005,
+                 iterations=1,
+                 ):
+        '''
+        img_goal: RGB array for final pose
+        ct = image downsampling parameter (high ct => faster but less accurate)
+        LR = learning rate of NN
+        iterations = iterations to train NN (high value => slower but more accurate)
+        horizon = MPC horizon
+        '''
+        self.img_goal = img_goal
         self.horizon = horizon
         self.iterations = iterations
         self.ct = ct
@@ -60,7 +45,13 @@ class Rtvs:
                                           lr=LR, betas=(0.93, 0.999))
         self.loss_fn = torch.nn.MSELoss(size_average=False)
 
-    def get_vel(self, img_goal, img_src, pre_img_src=None):
+    def get_vel(self, img_src, pre_img_src):
+        '''
+            img_src = current RGB camera image
+            prev_img_src = previous RGB camera image 
+                        (to be used for depth estimation using flowdepth)
+        '''
+        img_goal = self.img_goal
         flow_utils = self.flow_utils
         vs_lstm = self.vs_lstm
         loss_fn = self.loss_fn
@@ -108,3 +99,24 @@ class Rtvs:
         f_hat = vs_lstm.forward(vel, Lsx, Lsy, -self.horizon,
                                 f12.to(torch.device('cuda:0')))
         return vs_lstm.v_interm[0], photo_error_val
+
+
+def get_interaction_data(d1, ct, Cy, Cx):
+    ky = Cy
+    kx = Cx
+    xyz = np.zeros([d1.shape[0], d1.shape[1], 3])
+    Lsx = np.zeros([d1.shape[0], d1.shape[1], 6])
+    Lsy = np.zeros([d1.shape[0], d1.shape[1], 6])
+
+    med = np.median(d1)
+    xyz = np.fromfunction(lambda i, j, k: 0.5*(k-1)*(k-2)*(ct*j-float(Cx))/float(kx) - k*(k-2)*(ct*i-float(Cy))/float(ky) + 0.5*k*(
+        k-1)*((d1[i.astype(int), j.astype(int)] == 0)*med + d1[i.astype(int), j.astype(int)]), (d1.shape[0], d1.shape[1], 3), dtype=float)
+
+    Lsx = np.fromfunction(lambda i, j, k: (k == 0).astype(int) * -1/xyz[i.astype(int), j.astype(int), 2] + (k == 2).astype(int) * xyz[i.astype(int), j.astype(int), 0]/xyz[i.astype(int), j.astype(int), 2] + (k == 3).astype(int) * xyz[i.astype(
+        int), j.astype(int), 0]*xyz[i.astype(int), j.astype(int), 1] + (k == 4).astype(int)*(-(1+xyz[i.astype(int), j.astype(int), 0]**2)) + (k == 5).astype(int)*xyz[i.astype(int), j.astype(int), 1], (d1.shape[0], d1.shape[1], 6), dtype=float)
+
+    Lsy = np.fromfunction(lambda i, j, k: (k == 1).astype(int) * -1/xyz[i.astype(int), j.astype(int), 2] + (k == 2).astype(int) * xyz[i.astype(int), j.astype(int), 1]/xyz[i.astype(int), j.astype(int), 2] + (k == 3).astype(int) * (1+xyz[i.astype(
+        int), j.astype(int), 1]**2) + (k == 4).astype(int)*-xyz[i.astype(int), j.astype(int), 0]*xyz[i.astype(int), j.astype(int), 1] + (k == 5).astype(int) * -xyz[i.astype(int), j.astype(int), 0], (d1.shape[0], d1.shape[1], 6), dtype=float)
+
+    return None, Lsx, Lsy
+
