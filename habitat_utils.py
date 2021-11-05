@@ -184,8 +184,7 @@ if __name__ == '__main__':
 #======================================================================================#
 def take_step(V, sim):
     V = V[0]
-    print("Velocity : ", V)
-    factor = 0.00416
+    factor = 1/250
     rf = 180/np.pi
     v1, v2, v3= 1, 1, 1
     sim.config.agents[0].action_space['move_right'].actuation.amount = v1*factor*V[0]

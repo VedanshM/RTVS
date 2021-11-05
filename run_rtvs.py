@@ -73,15 +73,18 @@ def main():
     rtvs = Rtvs(img_goal)
 
     while photo_error_val > 500 and step < 5000:
-        print("Step Number: ", step)
-        print("Photometric Error : ", photo_error_val)
         stime = time.time()
-        vel, photo_error_val = rtvs.get_vel(img_src, pre_img_src)
-        print("algo time: ", time.time() - stime)
-
+        vel = rtvs.get_vel(img_src, pre_img_src)
+        algo_time = time.time() - stime
+        photo_error_val = mse_(img_src, img_goal)
         perrors.append(photo_error_val)
 
         observations = take_step([vel], sim)
+
+        print("Step Number: ", step)
+        print("Velocity : ", vel.round(8))
+        print("Photometric Error : ", photo_error_val)
+        print("algo time: ", algo_time)
 
         pre_img_src = img_src
         img_src = observations["color_sensor"][:, :, :3]

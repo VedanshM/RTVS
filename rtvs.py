@@ -56,13 +56,14 @@ class Rtvs:
         vs_lstm = self.vs_lstm
         loss_fn = self.loss_fn
         optimiser = self.optimiser
+        ct = self.ct
 
         photo_error_val = mse_(img_src, img_goal)
         if photo_error_val < 6000 and photo_error_val > 3600:
             self.horizon = 10*(photo_error_val/6000)
         elif photo_error_val < 3000:
             self.horizon = 6
-        ct = self.ct
+
         f12 = flow_utils.flow_calculate(img_src, img_goal)[::ct, ::ct]
         flow_depth_proxy = flow_utils.flow_calculate(
             img_src, pre_img_src).astype('float64')
@@ -98,7 +99,10 @@ class Rtvs:
 
         f_hat = vs_lstm.forward(vel, Lsx, Lsy, -self.horizon,
                                 f12.to(torch.device('cuda:0')))
-        return vs_lstm.v_interm[0], photo_error_val
+        
+        vel = vs_lstm.v_interm[0].detach().cpu().numpy()
+
+        return vel
 
 
 def get_interaction_data(d1, ct, Cy, Cx):
