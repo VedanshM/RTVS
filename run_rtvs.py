@@ -72,7 +72,7 @@ def main():
     print(sim._default_agent.state)
     rtvs = Rtvs(img_goal)
 
-    while photo_error_val > 500 and step < 5000:
+    while photo_error_val > 2000 and step < 3000:
         stime = time.time()
         vel = rtvs.get_vel(img_src, pre_img_src)
         algo_time = time.time() - stime
